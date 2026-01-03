@@ -1,0 +1,258 @@
+openapi: 3.0.0
+info:
+  title: Customer Service Chatbot API
+  version: 1.0.0
+  description: API for customer service chatbot
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+
+tags:
+  - name: System
+    description: Health and service metadata
+  - name: Chat
+    description: Chatbot messaging APIs
+
+paths:
+  /:
+    get:
+      tags: [System]
+      summary: Service welcome
+      description: Returns a simple welcome message.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  message:
+                    type: string
+                required: [message]
+              examples:
+                welcome:
+                  value:
+                    message: Welcome to Customer Service Chatbot API
+
+  /health:
+    get:
+      tags: [System]
+      summary: Health check
+      description: Indicates whether the service is running.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              examples:
+                ok:
+                  value:
+                    status: ok
+                    service: customer-service-chatbot
+
+  /api/v1/chat:
+    post:
+      tags: [Chat]
+      summary: Send a message to the chatbot
+      description: Process a user message and return a chatbot response.
+      operationId: postChatMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatRequest"
+            examples:
+              basic:
+                value:
+                  message: Where is my order?
+                  session_id: sess_01HXYZ...
+                  user:
+                    id: user_123
+                    is_authenticated: true
+                  metadata:
+                    locale: en-US
+      responses:
+        "200":
+          description: Successful chatbot response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatResponse"
+              examples:
+                answer:
+                  value:
+                    session_id: sess_01HXYZ...
+                    reply: I can help with that. What is your order number?
+                    messages:
+                      - role: user
+                        content: Where is my order?
+                        timestamp: "2026-01-01T12:00:00Z"
+                      - role: assistant
+                        content: I can help with that. What is your order number?
+                        timestamp: "2026-01-01T12:00:01Z"
+                    handoff:
+                      recommended: false
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                missingMessage:
+                  value:
+                    error:
+                      code: bad_request
+                      message: Field 'message' is required
+        "429":
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                rateLimited:
+                  value:
+                    error:
+                      code: rate_limited
+                      message: Too many requests
+                      retry_after_seconds: 10
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                serverError:
+                  value:
+                    error:
+                      code: internal_error
+                      message: Unexpected error
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          description: Health status indicator.
+          enum: [ok]
+        service:
+          type: string
+          description: Service identifier.
+      required: [status, service]
+
+    ChatUser:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          description: Application-specific user identifier.
+        is_authenticated:
+          type: boolean
+          description: Whether the user is authenticated.
+          default: false
+      required: [is_authenticated]
+
+    ChatRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        message:
+          type: string
+          description: The user's message.
+          minLength: 1
+        session_id:
+          type: string
+          description: Client-generated or server-issued session identifier for conversation continuity.
+        user:
+          $ref: "#/components/schemas/ChatUser"
+        metadata:
+          type: object
+          description: Optional client metadata (e.g., locale, channel).
+          additionalProperties: true
+      required: [message]
+
+    ChatMessage:
+      type: object
+      additionalProperties: false
+      properties:
+        role:
+          type: string
+          enum: [user, assistant, system]
+        content:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+      required: [role, content]
+
+    Handoff:
+      type: object
+      additionalProperties: false
+      properties:
+        recommended:
+          type: boolean
+          description: Whether the system recommends escalation to a human agent.
+        reason:
+          type: string
+          description: Optional reason for handoff recommendation.
+        ticket_id:
+          type: string
+          description: Optional ticket identifier if a ticket was created.
+      required: [recommended]
+
+    ChatResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        session_id:
+          type: string
+          description: Conversation session identifier.
+        reply:
+          type: string
+          description: Chatbot response text.
+        messages:
+          type: array
+          description: Optional transcript snippet for the session.
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+        handoff:
+          $ref: "#/components/schemas/Handoff"
+      required: [reply]
+
+    Error:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code.
+          example: bad_request
+        message:
+          type: string
+          description: Human-readable error message.
+          example: Field 'message' is required
+        retry_after_seconds:
+          type: integer
+          minimum: 0
+          description: Present when the client should retry after a delay (e.g., rate limits).
+      required: [code, message]
+
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        error:
+          $ref: "#/components/schemas/Error"
+      required: [error]

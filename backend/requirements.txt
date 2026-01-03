@@ -10,5 +10,6 @@ psycopg2-binary==2.9.9
 # Environment
 python-dotenv==1.0.0
 
-# CORS
-fastapi-cors==0.1.0
+# Testing
+pytest==7.4.4
+httpx==0.26.0

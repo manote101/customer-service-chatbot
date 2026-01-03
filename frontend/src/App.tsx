@@ -1,12 +1,11 @@
 import React from 'react';
+import { ChatPage } from './pages/ChatPage';
 import './App.css';
 
 function App() {
   return (
     <div className="App">
-      <header className="App-header">
-        <h1>Customer Service Chatbot</h1>
-      </header>
+      <ChatPage />
     </div>
   );
 }
